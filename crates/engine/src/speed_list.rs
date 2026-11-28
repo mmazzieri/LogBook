@@ -248,9 +248,7 @@ pub fn add(text: &str, thought: &Thought) -> Option<(String, u64)> {
     let head_len = text.len() - body.len();
     let Some((from, to)) = section(body) else {
         // At the end, after one blank line: only the line breaks that are missing are added.
-        let sep = if text.trim().is_empty() {
-            ""
-        } else if text.ends_with("\n\n") || text.ends_with("\n\r\n") {
+        let sep = if text.trim().is_empty() || text.ends_with("\n\n") || text.ends_with("\n\r\n") {
             ""
         } else if text.ends_with('\n') {
             nl
