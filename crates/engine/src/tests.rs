@@ -350,9 +350,37 @@ mod speed_list {
     }
 
     #[test]
+    fn code_blocks_follow_commonmark_fences() {
+        // A shorter fence does not close a longer one: the heading inside is code.
+        let entry = "~~~~\n~~~\n## Speed list\nexample\n## Next\n~~~~\n";
+        let (text, _) = add(entry, &thought(None, "a", None)).unwrap();
+        assert!(text.starts_with(entry));
+        // A numbered line inside code is neither a thought nor counted.
+        let entry = "## Speed list\n1. real\n\n~~~\n99. example\n~~~\n";
+        assert_eq!(items(entry).len(), 1);
+        assert_eq!(add(entry, &thought(None, "b", None)).unwrap().1, 2);
+    }
+
+    #[test]
+    fn existing_blanks_are_kept() {
+        let (text, _) = add("Day.  \n\n\n", &thought(None, "a", None)).unwrap();
+        assert_eq!(text, "Day.  \n\n\n## Speed list\n\n1. a\n");
+        let (text, _) = add("## Speed list\n\n1. a  \n\n## Then\n", &thought(None, "b", None)).unwrap();
+        assert_eq!(text, "## Speed list\n\n1. a  \n2. b\n\n## Then\n");
+        let (text, _) = add("## Speed list\n\n\n## Then\n", &thought(None, "a", None)).unwrap();
+        assert_eq!(text, "## Speed list\n\n1. a\n\n\n## Then\n");
+    }
+
+    #[test]
     fn thoughts_read_back_as_written() {
         let mut text = String::from("Day.\n");
-        let written = [thought(Some("one two"), "first", Some("s")), thought(None, "second *bold*", None)];
+        let written = [
+            thought(Some("one two"), "first", Some("s")),
+            thought(None, "second *bold*", None),
+            // Text that looks like a hint or a subject stays text.
+            thought(None, "**bold** start", None),
+            thought(None, "ping @bob", None),
+        ];
         for t in &written {
             text = add(&text, t).unwrap().0;
         }
