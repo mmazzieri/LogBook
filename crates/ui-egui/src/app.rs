@@ -4,6 +4,7 @@ use crate::i18n::{Lang, Strings};
 use crate::views;
 use chrono::{Local, NaiveDate};
 use diarycraft_engine::search::{Hit, search};
+use diarycraft_engine::speed_list::{self, Thought};
 use diarycraft_engine::text;
 use diarycraft_file::{Diary, Encoding, Fingerprint, Loaded, Saved};
 use diarycraft_model::WeekStart;
@@ -106,6 +107,8 @@ pub enum Action {
     SetTheme(Theme),
     SetWeekStart(WeekStart),
     Search,
+    /// Adds what the quick field holds to today's speed list.
+    Capture,
     Save,
     Quit,
     /// From the unsaved-changes question: save everything, then leave.
@@ -122,6 +125,8 @@ pub struct DiaryCraftApp {
     /// First day of the month shown by the calendar.
     pub month: NaiveDate,
     pub query: String,
+    /// The quick field: a thought on its way to today's speed list.
+    pub thought: String,
     pub hits: Option<Vec<Hit>>,
     /// The latest entries with their first line, newest first.
     pub recent: Vec<(NaiveDate, String)>,
@@ -171,6 +176,7 @@ impl DiaryCraftApp {
             page: None,
             month: diarycraft_engine::calendar::month_start(today()),
             query: String::new(),
+            thought: String::new(),
             hits: None,
             recent: Vec::new(),
             dirty_since: None,
@@ -426,6 +432,60 @@ impl DiaryCraftApp {
         }
     }
 
+    /// Adds the quick field's thought to today's speed list: into the page when today is on
+    /// screen, into a kept page with autosave off, else straight to disk with the usual conflict
+    /// rule. The field is emptied only once the thought is somewhere.
+    fn capture(&mut self) {
+        let Some(thought) = Thought::parse(&self.thought) else { return };
+        let s = self.strings();
+        let date = today();
+        let added = |text: &str| speed_list::add(text, &thought);
+        let number = if let Some(page) = self.page.as_mut().filter(|p| p.loaded.date == date) {
+            if self.conflict.is_some() {
+                self.error = Some(s.capture_locked.to_owned());
+                return;
+            }
+            let Some((text, n)) = added(&page.text) else { return };
+            page.text = text;
+            // Saved at the next frame with autosave on, kept unsaved with it off.
+            self.dirty_since = Some(0.0);
+            n
+        } else if let Some(draft) = self.drafts.get_mut(&date) {
+            let Some((text, n)) = added(&draft.text) else { return };
+            draft.text = text;
+            n
+        } else {
+            let Some(diary) = &mut self.diary else { return };
+            let loaded = match diary.read(date) {
+                Ok(l) => l,
+                Err(e) => {
+                    self.error = Some(self.lang().describe(&e));
+                    return;
+                }
+            };
+            let Some((text, n)) = added(&loaded.text) else { return };
+            if self.prefs.manual_save {
+                let attachments = diary.attachments(date);
+                self.drafts.insert(date, Page { loaded, text, attachments });
+            } else {
+                match diary.save(&loaded, &text, &computer_name(), &stamp()) {
+                    Ok(Saved::Written { .. } | Saved::Skipped) => {}
+                    Ok(Saved::Conflict { copy, .. }) => {
+                        self.error = Some(format!("{}: {}", s.conflict_title, copy.display()));
+                    }
+                    Err(e) => {
+                        self.error = Some(self.lang().describe(&e));
+                        return;
+                    }
+                }
+                self.refresh_recent();
+            }
+            n
+        };
+        self.thought.clear();
+        self.notice = Some((format!("{} {number}", s.captured), 0.0));
+    }
+
     fn run_search(&mut self) {
         let Some(diary) = &self.diary else { return };
         if self.query.trim().is_empty() {
@@ -525,6 +585,7 @@ impl DiaryCraftApp {
                     }
                 }
                 Action::Search => self.run_search(),
+                Action::Capture => self.capture(),
                 Action::Save => self.save_all(),
                 Action::Quit => self.leave(Leave::Quit, ctx),
                 Action::SaveAndLeave => {

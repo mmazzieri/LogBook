@@ -48,7 +48,9 @@ impl Tools for DiaryTools {
             tool(
                 "read",
                 "Read an entry",
-                &format!("The text of a day, its attachments and the version needed to replace it. {data}"),
+                &format!(
+                    "The text of a day, its speed list, its attachments and the version needed to replace it. {data}"
+                ),
                 object(json!({"date": date()}), &["date"]),
                 Effect::ReadOnly,
             ),
@@ -67,6 +69,16 @@ impl Tools for DiaryTools {
                 "Add to an entry",
                 "Adds a paragraph at the end of a day, creating the entry if there is none.",
                 object(json!({"date": date(), "text": string("The text to add")}), &["date", "text"]),
+                Effect::Files,
+            ),
+            tool(
+                "capture",
+                "Catch a thought",
+                "Adds a thought to the speed list of a day: the next number, an optional hint and subject, in the `Speed list` section of the entry, which is created if there is none. `read` returns the thoughts of a day.",
+                object(
+                    json!({"date": date(), "text": string("The thought, one line"), "hint": string("One to three words that bring it back to mind"), "subject": string("What it is about, one word")}),
+                    &["date", "text"],
+                ),
                 Effect::Files,
             ),
             tool(

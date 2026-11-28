@@ -70,7 +70,7 @@ fn mcp_speaks_the_protocol_and_needs_both_roots() {
     let lines: Vec<serde_json::Value> = text.lines().map(|l| serde_json::from_str(l).unwrap()).collect();
     assert_eq!(lines.len(), 4);
     assert_eq!(lines[0]["result"]["serverInfo"]["name"], "diarycraft");
-    assert_eq!(lines[1]["result"]["tools"].as_array().unwrap().len(), 9);
+    assert_eq!(lines[1]["result"]["tools"].as_array().unwrap().len(), 10);
     assert_ne!(lines[2]["result"]["isError"], true);
     assert_eq!(lines[3]["result"]["isError"], true);
     assert_eq!(std::fs::read_to_string(diary.join("2026/11/2026-11-24.md")).unwrap(), "hello\n");

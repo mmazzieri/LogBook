@@ -59,6 +59,19 @@ enum Cmd {
         date: NaiveDate,
         text: Option<String>,
     },
+    /// Add a thought to the speed list of a day (standard input without TEXT)
+    Capture {
+        text: Option<String>,
+        /// The day; today without it
+        #[arg(long, value_parser = date, default_value = "today")]
+        date: NaiveDate,
+        /// One to three words that bring the thought back to mind
+        #[arg(long)]
+        hint: Option<String>,
+        /// What the thought is about, one word
+        #[arg(long)]
+        subject: Option<String>,
+    },
     /// Entries with every word of the search
     Search {
         #[arg(required = true)]
@@ -142,6 +155,9 @@ fn run(cli: Cli) -> Result<(), String> {
         Cmd::Read { date } => Command::Read { date },
         Cmd::Write { date, text, version } => Command::Write { date, text: text_or_stdin(text)?, version },
         Cmd::Append { date, text } => Command::Append { date, text: text_or_stdin(text)? },
+        Cmd::Capture { text, date, hint, subject } => {
+            Command::Capture { date, text: text_or_stdin(text)?, hint, subject }
+        }
         Cmd::Search { words, limit } => Command::Search { query: words.join(" "), limit },
         Cmd::Attach { date, file } => Command::Attach { date, file },
         Cmd::Conflicts => Command::Conflicts,

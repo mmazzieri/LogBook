@@ -9,7 +9,7 @@ pub mod confine;
 
 use chrono::NaiveDate;
 use confine::{Access, Confinement};
-use diarycraft_engine::{search, text};
+use diarycraft_engine::{search, speed_list, text};
 use diarycraft_file::{Diary, Fingerprint, Loaded, Saved};
 pub use diarycraft_model::WeekStart;
 use serde::{Deserialize, Serialize};
@@ -63,6 +63,15 @@ pub enum Command {
     Append {
         date: NaiveDate,
         text: String,
+    },
+    /// Adds a thought to the speed list of a day.
+    Capture {
+        date: NaiveDate,
+        text: String,
+        #[serde(default)]
+        hint: Option<String>,
+        #[serde(default)]
+        subject: Option<String>,
     },
     Search {
         query: String,
@@ -161,6 +170,7 @@ impl Session {
                     "exists": loaded.base.is_some(),
                     "version": version(&loaded),
                     "text": loaded.text,
+                    "thoughts": thoughts(&loaded.text),
                     "attachments": self.attachments(date)?,
                 }))
             }
@@ -180,6 +190,18 @@ impl Session {
                 let added = added.trim_end();
                 let text = if before.is_empty() { format!("{added}\n") } else { format!("{before}\n\n{added}\n") };
                 self.save(&loaded, &text, ctx)
+            }
+            Command::Capture { date, text: typed, hint, subject } => {
+                let thought = speed_list::Thought { hint, text: typed, subject };
+                let loaded = self.load(date, Access::Write)?;
+                let Some((text, number)) = speed_list::add(&loaded.text, &thought) else {
+                    return Err(Error::Invalid("there is nothing to add: the thought is blank".into()));
+                };
+                let mut answer = self.save(&loaded, &text, ctx)?;
+                if let Some(map) = answer.as_object_mut() {
+                    map.insert("number".into(), json!(number));
+                }
+                Ok(answer)
             }
             Command::Search { query, limit } => {
                 if query.trim().is_empty() {
@@ -264,6 +286,14 @@ impl Session {
         let files = self.diary.attachments(date);
         Ok(files.iter().filter_map(|p| p.file_name()).map(|n| n.to_string_lossy().into_owned()).collect())
     }
+}
+
+/// The speed list of an entry, for an answer.
+fn thoughts(text: &str) -> Vec<Value> {
+    speed_list::items(text)
+        .into_iter()
+        .map(|i| json!({"number": i.number, "hint": i.thought.hint, "text": i.thought.text, "subject": i.thought.subject}))
+        .collect()
 }
 
 fn version(loaded: &Loaded) -> Option<String> {

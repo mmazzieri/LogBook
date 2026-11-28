@@ -28,6 +28,7 @@ On macOS, drag DiaryCraft to Applications. Until a release is signed with a Deve
 - The calendar on the left shows the month, with the days that have an entry highlighted. Click a day to read or write it; **Today** goes back to today.
 - Under the calendar are the latest entries, or the results of the search box at the top: every word typed must appear in the entry, ignoring case.
 - What you write is saved one second after you stop typing, when you move to another day and when you close the app. A day with nothing written creates no file. Untick **Autosave** at the top right to save only with **Save** (Ctrl+S, ⌘S on a Mac): changes stay in memory while the app is open, also when you move to another day (the calendar shows those days in italics), and closing the app, the diary or opening another one asks whether to save them.
+- **Quick thought**, the field at the top, catches a thought without leaving what you are doing: type it and press Enter, and it goes into today's speed list, a numbered `## Speed list` section of today's entry (added at the end the first time). `house: call the agency` gives it a hint of one to three words, shown in bold; a final `@writing` gives it a subject. The field stays ready for the next thought.
 - **Attach file…** copies files into the day's attachments folder (`2026/11/2026-11-24/`) and adds a link to them in the text.
 - The editor colours the Markdown as you type (headings, bold, italic, code, links, lists, quotes, the front matter). **Preview** shows the entry formatted, with working links to its attachments; **Write** goes back to the text.
 - Entries from the 2014 LogBook (`year/month/DD.txt` or `year/month/YYYYMMDD.txt`, also in Windows-1252) are read as they are. The first time you change one, it becomes a Markdown entry: the file is renamed to `year/month/YYYY-MM-DD.md` and saved in UTF-8. Entries you don't change stay as they are.
@@ -44,6 +45,7 @@ Every package also has `diarycraft-cli`, which works on the diary without a wind
 
 ```
 diarycraft-cli --diary ~/Documents/DiaryCraft append today "Lunch with friends."
+diarycraft-cli --diary ~/Documents/DiaryCraft capture --hint house "call the agency"
 diarycraft-cli --diary ~/Documents/DiaryCraft search lunch
 diarycraft-cli --help
 ```

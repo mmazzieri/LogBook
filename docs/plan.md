@@ -59,7 +59,7 @@ xtask/          ci, packaging
 
 Si costruisce dopo la v1, sugli stessi file di testo, senza cambiare il formato delle voci.
 
-- **Speed list**: cattura rapida di un pensiero da una scorciatoia globale o dal campo in cima all'app, con numero progressivo, *hint* di una-tre parole e soggetto facoltativo. I pensieri del giorno finiscono in una sezione della voce del giorno, così il diario resta l'unico posto dove si scrive.
+- **Speed list** (fatta con l'issue #18, tranne la scorciatoia globale): cattura rapida di un pensiero dal campo «Pensiero veloce» in cima all'app, con numero progressivo, *hint* di una-tre parole e soggetto facoltativo (`spunto: testo @soggetto`). I pensieri del giorno finiscono nella sezione `## Speed list` della voce di oggi, in Markdown normale (`1. **spunto** testo @soggetto`), così il diario resta l'unico posto dove si scrive; anche da `diarycraft-cli capture` e dallo strumento MCP `capture`, e `read` restituisce l'elenco. La scorciatoia globale, fuori dalla finestra, resta da fare.
 - **Soggetti**: una cartella per soggetto con la pagina P&P (scopo e principi, inclusioni ed esclusioni), le note di approfondimento (POI), ricerca, fonti, progetti.
 - **Smistamento**: dalla speed list del giorno ogni pensiero si sposta nel soggetto giusto, a mano; la proposta automatica con un LLM guidato dalle P&P è un passo successivo e facoltativo.
 - **Mappe**: SMOC per soggetto e GSMOC su tutti i soggetti, generate dai collegamenti tra le note e modificabili.

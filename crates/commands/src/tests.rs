@@ -185,3 +185,24 @@ fn links_do_not_lead_out_of_the_diary() {
     symlink(&b.outside, meta.join(".diarycraft")).unwrap();
     assert!(Session::open(&meta, Some(b.confinement())).is_err());
 }
+
+#[test]
+fn capture_numbers_the_thoughts_of_a_day() {
+    let dir = tempfile::tempdir().unwrap();
+    let mut s = Session::open(dir.path(), None).unwrap();
+    run(&mut s, json!({"cmd": "append", "date": "2026-11-24", "text": "A day."})).unwrap();
+    let first =
+        run(&mut s, json!({"cmd": "capture", "date": "2026-11-24", "text": "call the agency", "hint": "house"}))
+            .unwrap();
+    let second =
+        run(&mut s, json!({"cmd": "capture", "date": "2026-11-24", "text": "maps", "subject": "writing"})).unwrap();
+    assert_eq!((&first["number"], &second["number"]), (&json!(1), &json!(2)));
+    let r = run(&mut s, json!({"cmd": "read", "date": "2026-11-24"})).unwrap();
+    assert!(r["text"].as_str().unwrap().starts_with("A day.\n"));
+    assert_eq!(r["thoughts"][0]["hint"], "house");
+    assert_eq!(r["thoughts"][1]["subject"], "writing");
+    assert!(matches!(
+        run(&mut s, json!({"cmd": "capture", "date": "2026-11-24", "text": " \n"})),
+        Err(Error::Invalid(_))
+    ));
+}

@@ -74,6 +74,14 @@ pub fn top_bar(ui: &mut egui::Ui, app: &mut DiaryCraftApp) {
         if r.changed() {
             app.actions.push(Action::Search);
         }
+        let r = ui
+            .add(egui::TextEdit::singleline(&mut app.thought).hint_text(s.capture_hint).desired_width(320.0))
+            .on_hover_text(s.capture_tip);
+        if r.lost_focus() && ui.input(|i| i.key_pressed(egui::Key::Enter)) {
+            app.actions.push(Action::Capture);
+            // Ready for the next thought.
+            r.request_focus();
+        }
         ui.with_layout(egui::Layout::right_to_left(egui::Align::Center), |ui| {
             let mut autosave = !app.prefs.manual_save;
             if ui.checkbox(&mut autosave, s.autosave).on_hover_text(s.autosave_hint).changed() {

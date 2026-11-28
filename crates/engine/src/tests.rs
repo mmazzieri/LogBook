@@ -282,3 +282,127 @@ fn links_of_the_formatted_view() {
         assert_eq!(link_target(nowhere), None, "{nowhere}");
     }
 }
+
+mod speed_list {
+    use crate::speed_list::{Thought, add, items};
+
+    fn thought(hint: Option<&str>, text: &str, subject: Option<&str>) -> Thought {
+        Thought { hint: hint.map(str::to_owned), text: text.to_owned(), subject: subject.map(str::to_owned) }
+    }
+
+    #[test]
+    fn typed_hint_and_subject() {
+        assert_eq!(
+            Thought::parse("new house: call the agency @home"),
+            Some(thought(Some("new house"), "call the agency", Some("home")))
+        );
+        assert_eq!(Thought::parse("  just   a thought "), Some(thought(None, "just a thought", None)));
+        // Four words before a colon, a web address and a time are text, not hints.
+        assert_eq!(Thought::parse("one two three four: x").map(|t| t.hint), Some(None));
+        assert_eq!(Thought::parse("see https://example.org").map(|t| t.hint), Some(None));
+        assert_eq!(Thought::parse("call at 10:30").map(|t| t.hint), Some(None));
+        // An address ending the line is not a subject.
+        assert_eq!(Thought::parse("write to a@example.org").map(|t| t.subject), Some(None));
+        assert_eq!(Thought::parse("   "), None);
+    }
+
+    #[test]
+    fn first_thought_adds_the_section_and_keeps_the_rest() {
+        let (text, n) =
+            add("---\nmood: good\n---\nA quiet day.\n", &thought(Some("book"), "reread maps", Some("writing")))
+                .unwrap();
+        assert_eq!(n, 1);
+        assert!(text.starts_with("---\nmood: good\n---\nA quiet day.\n"));
+        assert!(text.ends_with("## Speed list\n\n1. **book** reread maps @writing\n"));
+        let (empty, _) = add("", &thought(None, "x", None)).unwrap();
+        assert_eq!(empty, "## Speed list\n\n1. x\n");
+    }
+
+    #[test]
+    fn next_thought_follows_the_last_and_takes_the_next_number() {
+        let entry = "Morning.\n\n## Speed list\n\n1. a\n7. b\n\n## Evening\n\nTired.\n";
+        let (text, n) = add(entry, &thought(None, "c", None)).unwrap();
+        assert_eq!(n, 8);
+        assert_eq!(text, "Morning.\n\n## Speed list\n\n1. a\n7. b\n8. c\n\n## Evening\n\nTired.\n");
+        // A deeper heading belongs to the section; the thought goes after it, at the section's end.
+        let nested = "# speed LIST\n1. a\n## note\nmore\n# Next\n";
+        let (text, n) = add(nested, &thought(None, "b", None)).unwrap();
+        assert_eq!(n, 2);
+        assert_eq!(text, "# speed LIST\n1. a\n## note\nmore\n2. b\n# Next\n");
+    }
+
+    #[test]
+    fn a_heading_alone_and_windows_line_ends() {
+        let (text, _) = add("## Speed list\n## Then\n", &thought(None, "a", None)).unwrap();
+        assert_eq!(text, "## Speed list\n\n1. a\n\n## Then\n");
+        let (text, _) = add("## Speed list", &thought(None, "a", None)).unwrap();
+        assert_eq!(text, "## Speed list\n\n1. a\n");
+        let (text, _) = add("Day.\r\n", &thought(None, "a", None)).unwrap();
+        assert_eq!(text, "Day.\r\n\r\n## Speed list\r\n\r\n1. a\r\n");
+    }
+
+    #[test]
+    fn a_heading_inside_code_is_not_the_section() {
+        let entry = "```\n## Speed list\n```\n";
+        let (text, _) = add(entry, &thought(None, "a", None)).unwrap();
+        assert!(text.starts_with(entry));
+        assert_eq!(items(&text).len(), 1);
+    }
+
+    #[test]
+    fn code_blocks_follow_commonmark_fences() {
+        // A shorter fence does not close a longer one: the heading inside is code.
+        let entry = "~~~~\n~~~\n## Speed list\nexample\n## Next\n~~~~\n";
+        let (text, _) = add(entry, &thought(None, "a", None)).unwrap();
+        assert!(text.starts_with(entry));
+        // A numbered line inside code is neither a thought nor counted.
+        let entry = "## Speed list\n1. real\n\n~~~\n99. example\n~~~\n";
+        assert_eq!(items(entry).len(), 1);
+        assert_eq!(add(entry, &thought(None, "b", None)).unwrap().1, 2);
+    }
+
+    #[test]
+    fn existing_blanks_are_kept() {
+        let (text, _) = add("Day.  \n\n\n", &thought(None, "a", None)).unwrap();
+        assert_eq!(text, "Day.  \n\n\n## Speed list\n\n1. a\n");
+        let (text, _) = add("## Speed list\n\n1. a  \n\n## Then\n", &thought(None, "b", None)).unwrap();
+        assert_eq!(text, "## Speed list\n\n1. a  \n2. b\n\n## Then\n");
+        let (text, _) = add("## Speed list\n\n\n## Then\n", &thought(None, "a", None)).unwrap();
+        assert_eq!(text, "## Speed list\n\n1. a\n\n\n## Then\n");
+    }
+
+    #[test]
+    fn thoughts_read_back_as_written() {
+        let mut text = String::from("Day.\n");
+        let written = [
+            thought(Some("one two"), "first", Some("s")),
+            thought(None, "second *bold*", None),
+            // Text that looks like a hint or a subject stays text.
+            thought(None, "**bold** start", None),
+            thought(None, "ping @bob", None),
+        ];
+        for t in &written {
+            text = add(&text, t).unwrap().0;
+        }
+        let read: Vec<Thought> = items(&text).into_iter().map(|i| i.thought).collect();
+        assert_eq!(read, written);
+        assert!(items("1. not in a section\n").is_empty());
+    }
+
+    #[test]
+    fn hostile_text_never_panics() {
+        let mut seed: u64 = 7;
+        let pieces = ["#", " ", "\n", "\r\n", "Speed list", "1.", "9999999999.", "**", "@", "```", "---\n", "è", "\t"];
+        for _ in 0..3000 {
+            let mut text = String::new();
+            for _ in 0..(seed % 24) {
+                seed = seed.wrapping_mul(6364136223846793005).wrapping_add(1442695040888963407);
+                text.push_str(pieces[(seed >> 33) as usize % pieces.len()]);
+            }
+            let _ = Thought::parse(&text);
+            // Whatever the entry, a thought adds exactly one item and keeps what was before it.
+            let (out, _) = add(&text, &thought(Some(&text), &format!("x{text}"), Some(&text))).unwrap();
+            assert_eq!(items(&out).len(), items(&text).len() + 1, "{text:?}");
+        }
+    }
+}
